@@ -1,48 +1,84 @@
 # GoEncryptAES
 
-GoEncryptAES is an open-source implementation of AES-256 encryption using native Go libraries. This project is designed to provide secure, simple and easy-to-use file encryption. The code is free and open-source under the MIT license.
+**GoEncryptAES** is a small, idiomatic Go library and command‑line utility for
+AES encryption. The code is written with Go's standard library, follows the
+language's conventions, and comes with both CBC and GCM modes, key management
+helpers, and a simple CLI. Everything is MIT‑licensed.
 
-## Usage
-The project provides two different applications, which are self-explanatory due to their names:
+---
 
-- `encrypt`
-- `decrypt`
+## Quick start
 
-### Encrypt
-The `encrypt` program encrypts a given file with AES-256 encryption. Both the initialization vector (IV) and the key used for encryption are generated at random during execution. This approach enhances the security of the encrypted file.
+### Install
 
 ```bash
-./encrypt original.file
+# from the repository root
+cd ~/GoEncryptAES
+go install ./cmd/goencryptaes
 ```
 
-After successful encryption, the program produces two files in the same directory as the input file. These are:
+The binary `goencryptaes` will be placed in your `$GOBIN` (or `$GOPATH/bin`).
 
-- The encrypted file of the original file, with the `.encrypted` extension.
-- The key file with the `.key` extension.
+### Commands
 
-### Decrypt
+```text
+Usage:
+  goencryptaes encrypt -in <file> -out <file> -key <keyfile> [-mode cbc|gcm]
+  goencryptaes decrypt -in <file> -out <file> -key <keyfile> [-mode cbc|gcm]
+  goencryptaes genkey -out <file> [-size 256]
+```
 
-To decrypt a file, you will need the encrypted file generated during the encryption process. The key file is required only during the decryption process, so it should be stored securely until the need for decryption.
+* `encrypt`: encrypts a file using AES (CBC or GCM). The key may be raw
+  bytes or hex‑encoded; the command will accept either.
+* `decrypt`: reverses an encryption operation.
+* `genkey`: generates a secure random key and writes it (hex‑encoded) to the
+  specified file.  Recommended sizes are 128, 192, or 256 bits.
 
-Run the `decrypt` executable file and provide the name of the encrypted file as a command-line argument:
+Paths passed to the CLI are sanitized to prevent directory traversal issues.
+
+### Example
+
 ```bash
-./decrypt encrypted_file.encrypted
+goencryptaes genkey -out ~/keys/my.key -size 256
+goencryptaes encrypt -in secret.txt -out secret.aes -key ~/keys/my.key -mode gcm
+goencryptaes decrypt -in secret.aes -out secret.dec -key ~/keys/my.key -mode gcm
 ```
 
-The `decrypt` program will look for the key file with the same name as the encrypted file, but with the `.key` extension. For example, if the encrypted file is named `my_file.encrypted`, the program will look for the key file named `my_file.key`.
+---
 
-Make sure the key file is in the same directory as the encrypted file before running the `decrypt` program. Once executed, the original file will be restored to its previous state in the same directory.
+## Library usage
 
+The `aeslib` package can be imported by other Go programs that need AES
+capabilities. It exposes simple, test‑covered functions such as:
 
-## Building from Source Code
-To use GoEncryptAES, you need to have Go installed on your machine. After installing Go, you can clone this repository or download the source code to your local machine. Once the source code is available, navigate to the directory containing the code and run the following commands:
-
-In the Encryption directory:
 ```go
-go build encrypt.go
+key, _ := aeslib.GenerateKey(256)
+ciphertext, _ := aeslib.Encrypt(plaintext, key, aeslib.ModeGCM)
+cleartext, _ := aeslib.Decrypt(ciphertext, key, aeslib.ModeGCM)
 ```
 
-In the Decryption directory:
-```go 
-go build decrypt.go
+Higher‑level helpers handle file I/O and key decoding (`EncryptFile` /
+`DecryptFile`).
+
+## Development & Testing
+
+Run the unit tests with:
+
+```bash
+go test ./...
 ```
+
+Adherence to Go tooling (vet, fmt, goimports) is encouraged.
+
+---
+
+### Package layout
+
+```
+cmd/goencryptaes    # CLI entrypoint
+aeslib/              # reusable AES helpers and sanitization
+```
+
+By reorganizing the code into a library plus a main package and adding flags
+and key generation, the project is more extensible, safer, and closer to a
+professional Go project.
