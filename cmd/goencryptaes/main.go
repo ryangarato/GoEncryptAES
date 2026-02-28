@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/ryangarato/GoEncryptAES/aeslib"
 )
@@ -84,7 +85,18 @@ func decryptCmd(args []string) {
 		os.Exit(1)
 	}
 
-	if err := aeslib.DecryptFile(*in, *out, *key, *mode); err != nil {
+	// Validate paths to prevent directory traversal
+	cleanIn := filepath.Clean(*in)
+	cleanOut := filepath.Clean(*out)
+	cleanKey := filepath.Clean(*key)
+	if filepath.IsAbs(cleanIn) || filepath.HasPrefix(cleanIn, "..") ||
+		filepath.IsAbs(cleanOut) || filepath.HasPrefix(cleanOut, "..") ||
+		filepath.IsAbs(cleanKey) || filepath.HasPrefix(cleanKey, "..") {
+		fmt.Fprintf(os.Stderr, "invalid file path\n")
+		os.Exit(1)
+	}
+
+	if err := aeslib.DecryptFile(cleanIn, cleanOut, cleanKey, *mode); err != nil {
 		fmt.Fprintf(os.Stderr, "decryption failed: %v\n", err)
 		os.Exit(1)
 	}
@@ -109,7 +121,22 @@ func genkeyCmd(args []string) {
 
 	// Validate path to prevent directory traversal
 	cleanPath := filepath.Clean(*out)
-	if filepath.IsAbs(cleanPath) || filepath.HasPrefix(cleanPath, "..") {
+	if filepath.IsAbs(cleanPath) || strings.Contains(cleanPath, "..") {
+		fmt.Fprintf(os.Stderr, "invalid output path: %s\n", *out)
+		os.Exit(1)
+	}
+	// Ensure the path doesn't escape current directory
+	absPath, err := filepath.Abs(cleanPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "invalid output path: %s\n", *out)
+		os.Exit(1)
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "unable to determine working directory: %v\n", err)
+		os.Exit(1)
+	}
+	if !strings.HasPrefix(absPath, wd) {
 		fmt.Fprintf(os.Stderr, "invalid output path: %s\n", *out)
 		os.Exit(1)
 	}
