@@ -52,7 +52,18 @@ func encryptCmd(args []string) {
 		os.Exit(1)
 	}
 
-	if err := aeslib.EncryptFile(*in, *out, *key, *mode); err != nil {
+	// Validate paths to prevent directory traversal
+	cleanIn := filepath.Clean(*in)
+	cleanOut := filepath.Clean(*out)
+	cleanKey := filepath.Clean(*key)
+	if filepath.IsAbs(cleanIn) || filepath.HasPrefix(cleanIn, "..") ||
+		filepath.IsAbs(cleanOut) || filepath.HasPrefix(cleanOut, "..") ||
+		filepath.IsAbs(cleanKey) || filepath.HasPrefix(cleanKey, "..") {
+		fmt.Fprintf(os.Stderr, "invalid file path\n")
+		os.Exit(1)
+	}
+
+	if err := aeslib.EncryptFile(cleanIn, cleanOut, cleanKey, *mode); err != nil {
 		fmt.Fprintf(os.Stderr, "encryption failed: %v\n", err)
 		os.Exit(1)
 	}
@@ -96,12 +107,19 @@ func genkeyCmd(args []string) {
 		os.Exit(1)
 	}
 
+	// Validate path to prevent directory traversal
+	cleanPath := filepath.Clean(*out)
+	if filepath.IsAbs(cleanPath) || filepath.HasPrefix(cleanPath, "..") {
+		fmt.Fprintf(os.Stderr, "invalid output path: %s\n", *out)
+		os.Exit(1)
+	}
+
 	key, err := aeslib.GenerateKey(*size)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "key generation failed: %v\n", err)
 		os.Exit(1)
 	}
-	if err := os.WriteFile(filepath.Clean(*out), []byte(hex.EncodeToString(key)), 0o600); err != nil {
+	if err := os.WriteFile(cleanPath, []byte(hex.EncodeToString(key)), 0o600); err != nil {
 		fmt.Fprintf(os.Stderr, "unable to write key: %v\n", err)
 		os.Exit(1)
 	}
